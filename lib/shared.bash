@@ -4,6 +4,8 @@ DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 # shellcheck source=lib/plugin.bash
 . "${DIR}/plugin.bash"
+# shellcheck source=lib/parallel.bash
+. "${DIR}/parallel.bash"
 
 sha() {
   local shasum="false"
@@ -40,7 +42,8 @@ build_key() {
   local LEVEL="$1"
   local CACHE_PATH="$2"
   local COMPRESSION="${3:-}"
-  local EXTRA="${BUILDKITE_PLUGIN_CACHE_KEY_EXTRA:-}"
+  local EXTRA
+  EXTRA=$(plugin_read_config KEY_EXTRA)
 
   if [ "${LEVEL}" = 'file' ]; then
     plugin_read_list_into_result MANIFEST

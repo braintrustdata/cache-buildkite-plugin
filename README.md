@@ -45,6 +45,43 @@ The cache plugin supports zstd compression when using both GNU tar and BSD tar (
 
 When making changes related to zstd compression, tar invocation, or archive restoration, verify the behavior on a macOS host with the system `bsdtar`
 
+## Parallel caches (PoC)
+
+Use `caches` to configure multiple independent caches. Each entry accepts the same
+options as a single cache. All entries restore in parallel before the command and
+save in parallel after a successful command, with one background process per entry.
+
+```yaml
+plugins:
+  - braintrustdata/cache#frank/parallel-caches-poc:
+      caches:
+        - path: node_modules
+          manifest: package-lock.json
+          backend: s3
+          compression: zstd
+          restore: file
+          save: file
+        - path: .venv
+          manifest: uv.lock
+          backend: s3
+          compression: zstd
+          restore: file
+          save: file
+```
+
+Configure backend credentials and storage as described below. Options belong to
+each entry; `caches` cannot be combined with single-cache options at the top level.
+Existing single-cache configurations remain supported.
+
+Each worker's stdout and stderr are captured separately and printed after all
+workers finish. The hook then fails if any worker failed, respecting each entry's
+`soft-fail` setting. Archive extraction errors emit a warning and continue, including
+for single-cache configurations; signal terminations still fail. A failed extraction
+may leave a partially restored cache, so the build command must tolerate that.
+
+Use distinct, non-overlapping paths: this PoC does not check for conflicting entries.
+All entries run concurrently, so size the list for the agent's CPU, memory, and disk.
+
 ## Mandatory parameters
 
 ### `path` (string)
