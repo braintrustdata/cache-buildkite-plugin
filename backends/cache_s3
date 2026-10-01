@@ -60,6 +60,31 @@ s3_listobjects() {
   [ "${result}" != 'null' ]
 }
 
+describe_cache() {
+  local key objects
+  key="$(build_key "$1")"
+  objects=$(aws_cmd s3api list-objects-v2 \
+    --bucket "${BUILDKITE_PLUGIN_S3_CACHE_BUCKET}" \
+    --prefix "${key}" \
+    --query 'Contents[].[Key, Size]' --output text) || return $?
+
+  printf '%s\n' "${objects}" | awk -F '\t' \
+    -v bucket="${BUILDKITE_PLUGIN_S3_CACHE_BUCKET}" -v key="${key}" '
+    BEGIN { split("B KiB MiB GiB TiB PiB EiB", units, " ") }
+    NF == 2 && ($1 == key || index($1, key "/") == 1) && $2 ~ /^[0-9]+$/ {
+      size = $2
+      unit = 1
+      while (size >= 1024 && unit < 7) {
+        size /= 1024
+        unit++
+      }
+      printf "    s3://%s/%s (%.1f %s)\n", bucket, $1, size, units[unit]
+      found = 1
+    }
+    END { if (!found) exit 1 }
+  '
+}
+
 restore_cache() {
   local from="$1"
   local to="$2"
@@ -68,7 +93,7 @@ restore_cache() {
   key="$(build_key "${from}")"
 
   # if the object does not exist, assume it is a folder so use sync
-  if ! aws_cmd s3api head-object --bucket "${BUILDKITE_PLUGIN_S3_CACHE_BUCKET}" --key "${key}"; then
+  if ! aws_cmd s3api head-object --bucket "${BUILDKITE_PLUGIN_S3_CACHE_BUCKET}" --key "${key}" >/dev/null; then
     sync=true
   fi
 
@@ -97,6 +122,8 @@ shift
 
 if [ "$OPCODE" = 'exists' ]; then
   exists_cache "$@"
+elif [ "$OPCODE" = 'describe' ]; then
+  describe_cache "$@"
 elif [ "$OPCODE" = 'get' ]; then
   restore_cache "$@"
 elif [ "$OPCODE" = 'save' ]; then

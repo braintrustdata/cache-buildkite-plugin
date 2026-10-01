@@ -2,6 +2,9 @@
 set -euo pipefail
 
 PLUGIN_PREFIX="CACHE"
+if [ -n "${CACHE_PLUGIN_ENTRY_INDEX:-}" ]; then
+  PLUGIN_PREFIX="${PLUGIN_PREFIX}_CACHES_${CACHE_PLUGIN_ENTRY_INDEX}"
+fi
 
 # Reads either a value or a list from the given env prefix
 function prefix_read_list() {

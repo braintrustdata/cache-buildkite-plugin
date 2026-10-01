@@ -12,39 +12,51 @@ configuration:
         - branch
         - pipeline
         - all
-  properties:
-    backend:
-      type: string
-    compression:
-      type: string
-    force:
-      type: boolean
-    keep-compressed-artifacts:
-      type: boolean
-    key-extra:
-      type: string
-    soft-fail:
-      type: boolean
-    manifest:
-      oneOf:
-        - type: string
-        - type: array
+    cache:
+      type: object
+      properties:
+        backend:
+          type: string
+        compression:
+          type: string
+        force:
+          type: boolean
+        keep-compressed-artifacts:
+          type: boolean
+        key-extra:
+          type: string
+        soft-fail:
+          type: boolean
+        manifest:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        path:
+          type: string
+        retries:
+          type: integer
+        restore:
+          $ref: '#/$defs/valid_levels'
+        save:
+          oneOf:
+            - $ref: '#/$defs/valid_levels'
+            - type: array
+              items:
+                $ref: '#/$defs/valid_levels'
+      additionalProperties: false
+      anyOf:
+        - required: [ path, save ]
+        - required: [ path, restore ]
+  oneOf:
+    - $ref: '#/$defs/cache'
+    - type: object
+      properties:
+        caches:
+          type: array
+          minItems: 1
           items:
-            type: string
-    path:
-      type: string
-    retries:
-      type: integer
-    restore:
-      $ref: '#/$defs/valid_levels'
-    save:
-      oneOf:
-        - $ref: '#/$defs/valid_levels'
-        - type: array
-          items:
-            $ref: '#/$defs/valid_levels'
-  additionalProperties: false
-  anyOf:
-    - required: [ path, save ]
-    - required: [ path, restore ]
-
+            $ref: '#/$defs/cache'
+      required: [ caches ]
+      additionalProperties: false

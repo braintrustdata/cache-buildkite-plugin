@@ -11,6 +11,12 @@ DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 # shellcheck source=lib/shared.bash
 . "${DIR}/../lib/shared.bash"
+
+if parallel_caches_configured; then
+  run_parallel_caches "${BASH_SOURCE[0]}"
+  exit $?
+fi
+
 # shellcheck source=lib/compression.bash
 . "${DIR}/../lib/compression.bash"
 

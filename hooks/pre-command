@@ -5,6 +5,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=lib/shared.bash
 . "${DIR}/../lib/shared.bash"
+
+if parallel_caches_configured; then
+  run_parallel_caches "${BASH_SOURCE[0]}" restore
+  exit $?
+fi
+
 # shellcheck source=lib/compression.bash
 . "${DIR}/../lib/compression.bash"
 
@@ -38,6 +44,14 @@ perform_restore() {
 
     KEY=$(build_key "${CURRENT_LEVEL}" "${RESTORE_PATH}" "${COMPRESS}")
     if backend_exec exists "${KEY}"; then
+      if [ "${CACHE_PLUGIN_RESTORE_SUMMARY_ONLY:-false}" = 'true' ]; then
+        echo "  ${RESTORE_PATH} (${CURRENT_LEVEL}-level):"
+        if [ "$(plugin_read_config BACKEND 'fs')" = 's3' ]; then
+          backend_exec describe "${KEY}" || echo '    Warning: S3 cache size unavailable' >&2
+        fi
+        return 0
+      fi
+
       echo "Cache hit at ${CURRENT_LEVEL} level, restoring ${RESTORE_PATH}..."
 
       if compression_active; then
@@ -49,7 +63,13 @@ perform_restore() {
         trap "cleanup_compression_tempfile '${TEMP_PATH}'" TERM  EXIT
 
         retry_exec get backend_exec get "${KEY}" "${TEMP_PATH}" || return $?
-        decompress "${TEMP_PATH}" "${RESTORE_PATH}" || return $?
+        local extract_status=0
+        decompress "${TEMP_PATH}" "${RESTORE_PATH}" || extract_status=$?
+        if [ "${extract_status}" -ge 128 ]; then
+          return "${extract_status}"
+        elif [ "${extract_status}" -ne 0 ]; then
+          echo "--- :warning: Cache extraction failed for ${RESTORE_PATH}; continuing without a complete cache" >&2
+        fi
       else
         retry_exec get backend_exec get "${KEY}" "${RESTORE_PATH}" || return $?
       fi
