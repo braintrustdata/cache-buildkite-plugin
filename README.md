@@ -73,11 +73,16 @@ Configure backend credentials and storage as described below. Options belong to
 each entry; `caches` cannot be combined with single-cache options at the top level.
 Existing single-cache configurations remain supported.
 
+Before parallel restores start, a summary lists the selected caches, including each
+S3 object's full path and human-readable size. This adds a metadata-only lookup pass;
+summary lookup failures warn and leave the restore attempt to the worker.
+
 Each worker's stdout and stderr are captured separately and printed after all
-workers finish. The hook then fails if any worker failed, respecting each entry's
-`soft-fail` setting. Archive extraction errors emit a warning and continue, including
-for single-cache configurations; signal terminations still fail. A failed extraction
-may leave a partially restored cache, so the build command must tolerate that.
+workers finish, within the current log group. The hook then fails if any worker
+failed, respecting each entry's `soft-fail` setting. Archive extraction errors emit
+a warning and continue, including for single-cache configurations; signal terminations
+still fail. A failed extraction may leave a partially restored cache, so the build
+command must tolerate that.
 
 Use distinct, non-overlapping paths: this PoC does not check for conflicting entries.
 All entries run concurrently, so size the list for the agent's CPU, memory, and disk.

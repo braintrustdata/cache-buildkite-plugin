@@ -16,12 +16,22 @@ cache_entry_indices() {
 
 run_parallel_caches() (
   local hook="$1"
+  local operation="${2:-save}"
   local log_dir index pid position status
   local failed=0
   local pids=() indices=() statuses=()
 
   log_dir=$(mktemp -d)
   trap 'rm -rf "${log_dir}"' EXIT
+
+  if [ "${operation}" = 'restore' ]; then
+    echo 'Cache restore summary:'
+    while IFS= read -r index; do
+      CACHE_PLUGIN_ENTRY_INDEX="${index}" CACHE_PLUGIN_RESTORE_SUMMARY_ONLY=true \
+        bash "${hook}" 2>&1 | sed -E 's/^(---|\+\+\+|~~~) //' ||
+        echo "Warning: could not summarize cache ${index}; restore will still be attempted"
+    done < <(cache_entry_indices)
+  fi
 
   while IFS= read -r index; do
     CACHE_PLUGIN_ENTRY_INDEX="${index}" bash "${hook}" \
@@ -42,9 +52,10 @@ run_parallel_caches() (
   for position in "${!indices[@]}"; do
     index="${indices[${position}]}"
     status="${statuses[${position}]}"
-    echo "--- Cache ${index}"
-    cat "${log_dir}/${index}.stdout"
-    cat "${log_dir}/${index}.stderr" >&2
+    echo "Cache ${index}:"
+    # Keep worker messages in the current Buildkite log group.
+    sed -E 's/^(---|\+\+\+|~~~) //' "${log_dir}/${index}.stdout"
+    sed -E 's/^(---|\+\+\+|~~~) //' "${log_dir}/${index}.stderr" >&2
     if [ "${status}" -ne 0 ]; then
       echo "Cache ${index} failed with status ${status}" >&2
       failed="${status}"

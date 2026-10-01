@@ -7,7 +7,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${DIR}/../lib/shared.bash"
 
 if parallel_caches_configured; then
-  run_parallel_caches "${BASH_SOURCE[0]}"
+  run_parallel_caches "${BASH_SOURCE[0]}" restore
   exit $?
 fi
 
@@ -44,6 +44,14 @@ perform_restore() {
 
     KEY=$(build_key "${CURRENT_LEVEL}" "${RESTORE_PATH}" "${COMPRESS}")
     if backend_exec exists "${KEY}"; then
+      if [ "${CACHE_PLUGIN_RESTORE_SUMMARY_ONLY:-false}" = 'true' ]; then
+        echo "  ${RESTORE_PATH} (${CURRENT_LEVEL}-level):"
+        if [ "$(plugin_read_config BACKEND 'fs')" = 's3' ]; then
+          backend_exec describe "${KEY}" || echo '    Warning: S3 cache size unavailable' >&2
+        fi
+        return 0
+      fi
+
       echo "Cache hit at ${CURRENT_LEVEL} level, restoring ${RESTORE_PATH}..."
 
       if compression_active; then
